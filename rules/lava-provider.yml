@@ -1,0 +1,39 @@
+groups:
+  - name: lava-provider
+    rules:
+      - alert: LavaProviderExporterDown
+        expr: lava_provider_up == 0 or absent(lava_provider_up)
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "lava-provider-exporter cannot read provider state"
+          description: "No successful poll of the Lava REST API for 10 minutes."
+
+      - alert: LavaProviderJailed
+        expr: lava_provider_jailed == 1
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Provider jailed on {{ $labels.chain }}"
+          description: "The provider receives no pairings on {{ $labels.chain }} until the jail ends."
+
+      - alert: LavaProviderSpecDropped
+        expr: delta(lava_provider_specs_total[30m]) < 0
+        labels: { severity: critical }
+        annotations:
+          summary: "A spec disappeared from the provider's stake entries"
+          description: "Specs staked changed by {{ $value }} in 30 minutes. Check for an unstake or a frozen entry."
+
+      - alert: LavaProviderBlockReportStale
+        expr: changes(lava_provider_latest_block[2h]) == 0 and on(job, instance) lava_provider_up == 1
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "No new block reported for {{ $labels.chain }} in 2h"
+          description: "The latest block reported to Lava for {{ $labels.chain }} has not moved. Check the chain node behind this spec."
+
+      - alert: LavaProviderDelegationDrop
+        expr: (lava_provider_delegation_lava - lava_provider_delegation_lava offset 6h) / lava_provider_delegation_lava offset 6h < -0.2
+        labels: { severity: info }
+        annotations:
+          summary: "Delegations on {{ $labels.chain }} fell by more than 20% in 6h"
